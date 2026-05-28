@@ -215,6 +215,10 @@ h2 {
   padding: 28px;
 }
 
+.language-form {
+  margin-bottom: 20px;
+}
+
 .form-stack,
 .form-panel,
 .approval-form {

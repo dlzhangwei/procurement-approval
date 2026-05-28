@@ -1,22 +1,37 @@
 {% extends "base.html" %}
 
-{% block title %}登录 - 采购审批{% endblock %}
+{% block title %}{{ t("login") }} - {{ t("app_name") }}{% endblock %}
 
 {% block content %}
   <section class="auth-layout">
     <div class="auth-panel">
-      <h1>登录</h1>
+      <form method="get" class="language-form">
+        {% if request.args.get("next") %}
+          <input type="hidden" name="next" value="{{ request.args.get('next') }}">
+        {% endif %}
+        <label>
+          {{ t("language") }}
+          <select name="lang" onchange="this.form.submit()">
+            {% for code, label in languages.items() %}
+              <option value="{{ code }}" {{ 'selected' if lang == code else '' }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </form>
+
+      <h1>{{ t("login") }}</h1>
       <form method="post" class="form-stack">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="lang" value="{{ lang }}">
         <label>
-          用户名
+          {{ t("username") }}
           <input name="username" autocomplete="username" required autofocus>
         </label>
         <label>
-          密码
+          {{ t("password") }}
           <input name="password" type="password" autocomplete="current-password" required>
         </label>
-        <button type="submit" class="primary-button">进入系统</button>
+        <button type="submit" class="primary-button">{{ t("enter_system") }}</button>
       </form>
     </div>
   </section>

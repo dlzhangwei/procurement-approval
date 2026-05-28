@@ -10,6 +10,7 @@
 - 发票支持图片或 PDF；图片发票同样压缩到 500KB，PDF 最大 10MB。
 - `jose` 和 `admin` 可将申请标记为“已同意”或“未同意”，并填写审批备注。
 - `admin` 可新增用户、修改现有用户密码、按日期/状态筛选并导出 Excel。
+- UI 支持中文和西班牙语，登录页可选择语言。
 - 所有登录用户都可以查看全部申请及状态：待审批、已同意、未同意。
 - SQLite 数据和上传文件存放在 `instance/`，不会提交到 Git。
 - 可用 `DATABASE_PATH` 自定义 SQLite 文件路径，`UPLOAD_FOLDER` 自定义附件目录。
@@ -48,17 +49,39 @@ flask --app app run
 
 ```bash
 cp .env.example .env
+docker network create web
 docker compose up -d --build
 ```
 
-默认监听 `http://服务器IP:8000`。数据保存在 Docker volume `procurement_data`。
+容器使用哥伦比亚时区 `America/Bogota`。Compose 不直接暴露宿主机端口，只加入外部桥接网络 `web`，用于给 Nginx Proxy Manager 反向代理。数据保存在 Docker volume `procurement_data`。
 
 已部署过旧版本时，拉取代码后直接重建即可，数据库会自动迁移并新增 `jose`、`admin`、`carlos`：
 
 ```bash
 git pull
+docker network create web 2>/dev/null || true
 docker compose up -d --build
 ```
+
+## Nginx Proxy Manager
+
+域名 `buy.dlxy.top` 需要先在 DNS 中添加 A 记录，指向 VPS 公网 IP。
+
+Nginx Proxy Manager 容器也必须加入同一个 Docker 网络：
+
+```bash
+docker network connect web nginx-proxy-manager容器名
+```
+
+在 Nginx Proxy Manager 中新增 Proxy Host：
+
+- Domain Names: `buy.dlxy.top`
+- Scheme: `http`
+- Forward Hostname / IP: `procurement-approval`
+- Forward Port: `8000`
+- 勾选 Block Common Exploits
+- SSL 页签选择 Request a new SSL Certificate
+- 勾选 Force SSL 和 HTTP/2 Support
 
 ## Debian VPS 部署
 

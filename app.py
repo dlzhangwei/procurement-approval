@@ -7,6 +7,7 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from functools import wraps
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from flask import (
     Flask,
@@ -38,6 +39,7 @@ except ImportError:
 
 Image.MAX_IMAGE_PIXELS = 30_000_000
 MONEY_QUANT = Decimal("0.01")
+BOGOTA_TZ = ZoneInfo("America/Bogota")
 
 app = Flask(__name__, instance_relative_config=True)
 app.config.from_mapping(
@@ -57,6 +59,12 @@ STATUS_LABELS = {
     "rejected": "未同意",
 }
 
+STATUS_TRANSLATION_KEYS = {
+    "pending": "status_pending",
+    "approved": "status_approved",
+    "rejected": "status_rejected",
+}
+
 STATUS_CLASSES = {
     "pending": "status-pending",
     "approved": "status-approved",
@@ -67,6 +75,232 @@ ROLE_LABELS = {
     "admin": "管理员",
     "approver": "审批人",
     "requester": "申请人",
+}
+
+ROLE_TRANSLATION_KEYS = {
+    "admin": "role_admin",
+    "approver": "role_approver",
+    "requester": "role_requester",
+}
+
+LANGUAGES = {
+    "zh": "中文",
+    "es": "Español",
+}
+
+TRANSLATIONS = {
+    "zh": {
+        "app_name": "采购审批",
+        "nav_requests": "申请列表",
+        "nav_new_request": "新申请",
+        "nav_users": "用户管理",
+        "logout": "退出",
+        "role_admin": "管理员",
+        "role_approver": "审批人",
+        "role_requester": "申请人",
+        "status_pending": "待审批",
+        "status_approved": "已同意",
+        "status_rejected": "未同意",
+        "login": "登录",
+        "language": "语言",
+        "username": "用户名",
+        "password": "密码",
+        "enter_system": "进入系统",
+        "request_list": "申请列表",
+        "request_list_subtitle": "全部采购申请与审批状态",
+        "start_date": "开始日期",
+        "end_date": "结束日期",
+        "status": "状态",
+        "all": "全部",
+        "filter": "筛选",
+        "reset": "重置",
+        "export_excel": "导出 Excel",
+        "date": "日期",
+        "content": "内容",
+        "requester": "提交人",
+        "item_count": "明细",
+        "total_price": "总价",
+        "attachments_count": "附件",
+        "view": "查看",
+        "no_requests": "暂无采购申请",
+        "new_request_title": "新申请",
+        "new_request_subtitle": "提交采购日期、内容、明细、图片与发票",
+        "request_date": "申请日期",
+        "purchase_content": "采购内容",
+        "purchase_items": "采购明细",
+        "add_row": "增加一行",
+        "item": "项目",
+        "unit_price": "单价",
+        "quantity": "数量",
+        "line_total": "总价",
+        "total": "合计",
+        "purchase_item_placeholder": "采购项目",
+        "remove": "删除",
+        "purchase_images": "采购图片",
+        "invoice": "发票",
+        "cancel": "取消",
+        "submit_request": "提交申请",
+        "request_number": "申请",
+        "request_total": "申请总价",
+        "submitted_at": "提交时间",
+        "approver": "审批人",
+        "decision_time": "审批时间",
+        "decision_comment": "审批备注",
+        "no_items": "暂无采购明细",
+        "attachments": "附件",
+        "pdf": "PDF",
+        "image": "图片",
+        "no_attachments": "暂无附件",
+        "approval": "审批",
+        "reject": "未同意",
+        "approve": "同意",
+        "user_management": "用户管理",
+        "user_management_subtitle": "新增用户、调整角色、修改密码",
+        "add_user": "新增用户",
+        "display_name": "名称",
+        "role": "角色",
+        "account_status": "状态",
+        "created_at": "创建时间",
+        "active": "启用",
+        "inactive": "停用",
+        "edit": "编辑",
+        "new_user": "新增用户",
+        "edit_user": "编辑用户",
+        "user_form_subtitle": "设置登录信息与权限角色",
+        "new_password": "新密码",
+        "enable_account": "启用账号",
+        "save": "保存",
+        "invalid_date": "请选择有效的申请日期。",
+        "image_unrecognized": "图片文件无法识别，请上传 jpg、png 或 webp。",
+        "image_too_large": "图片压缩后仍超过 500KB，请换一张更小的图片。",
+        "pdf_too_large": "PDF 发票不能超过 10MB。",
+        "file_too_large": "上传内容太大，请减少文件数量或压缩后再上传。",
+        "login_failed": "用户名或密码不正确。",
+        "request_content_required": "请填写采购内容。",
+        "item_description_required": "请填写每一行的采购项目。",
+        "items_required": "请至少填写一行采购明细。",
+        "number_required": "{field}必须是有效数字。",
+        "number_positive": "{field}必须大于 0。",
+        "request_created": "采购申请已提交。",
+        "request_approved": "已同意该采购申请。",
+        "request_rejected": "已标记为未同意。",
+        "user_required": "用户名和密码不能为空。",
+        "username_required": "用户名不能为空。",
+        "self_admin_required": "不能取消当前登录管理员自己的管理员权限或启用状态。",
+        "user_created": "用户已新增。",
+        "user_updated": "用户信息已更新。",
+        "username_exists": "用户名已存在。",
+        "export_sheet": "采购申请",
+        "export_request_id": "申请编号",
+        "export_line_total": "行总价",
+        "export_request_total": "申请总价",
+    },
+    "es": {
+        "app_name": "Aprobación de compras",
+        "nav_requests": "Solicitudes",
+        "nav_new_request": "Nueva solicitud",
+        "nav_users": "Usuarios",
+        "logout": "Salir",
+        "role_admin": "Administrador",
+        "role_approver": "Aprobador",
+        "role_requester": "Solicitante",
+        "status_pending": "Pendiente",
+        "status_approved": "Aprobada",
+        "status_rejected": "Rechazada",
+        "login": "Iniciar sesión",
+        "language": "Idioma",
+        "username": "Usuario",
+        "password": "Contraseña",
+        "enter_system": "Entrar",
+        "request_list": "Solicitudes",
+        "request_list_subtitle": "Todas las solicitudes y su estado",
+        "start_date": "Fecha inicial",
+        "end_date": "Fecha final",
+        "status": "Estado",
+        "all": "Todas",
+        "filter": "Filtrar",
+        "reset": "Restablecer",
+        "export_excel": "Exportar Excel",
+        "date": "Fecha",
+        "content": "Contenido",
+        "requester": "Solicitante",
+        "item_count": "Líneas",
+        "total_price": "Total",
+        "attachments_count": "Adjuntos",
+        "view": "Ver",
+        "no_requests": "No hay solicitudes",
+        "new_request_title": "Nueva solicitud",
+        "new_request_subtitle": "Ingrese fecha, contenido, detalles, imágenes y factura",
+        "request_date": "Fecha de solicitud",
+        "purchase_content": "Contenido de compra",
+        "purchase_items": "Detalles de compra",
+        "add_row": "Agregar línea",
+        "item": "Artículo",
+        "unit_price": "Precio unitario",
+        "quantity": "Cantidad",
+        "line_total": "Total",
+        "total": "Total",
+        "purchase_item_placeholder": "Artículo de compra",
+        "remove": "Eliminar",
+        "purchase_images": "Imágenes de compra",
+        "invoice": "Factura",
+        "cancel": "Cancelar",
+        "submit_request": "Enviar solicitud",
+        "request_number": "Solicitud",
+        "request_total": "Total de la solicitud",
+        "submitted_at": "Fecha de envío",
+        "approver": "Aprobador",
+        "decision_time": "Fecha de decisión",
+        "decision_comment": "Comentario de aprobación",
+        "no_items": "No hay detalles",
+        "attachments": "Adjuntos",
+        "pdf": "PDF",
+        "image": "Imagen",
+        "no_attachments": "No hay adjuntos",
+        "approval": "Aprobación",
+        "reject": "Rechazar",
+        "approve": "Aprobar",
+        "user_management": "Usuarios",
+        "user_management_subtitle": "Crear usuarios, ajustar roles y cambiar contraseñas",
+        "add_user": "Agregar usuario",
+        "display_name": "Nombre",
+        "role": "Rol",
+        "account_status": "Estado",
+        "created_at": "Creado",
+        "active": "Activo",
+        "inactive": "Inactivo",
+        "edit": "Editar",
+        "new_user": "Agregar usuario",
+        "edit_user": "Editar usuario",
+        "user_form_subtitle": "Configure acceso y permisos",
+        "new_password": "Nueva contraseña",
+        "enable_account": "Activar cuenta",
+        "save": "Guardar",
+        "invalid_date": "Seleccione una fecha válida.",
+        "image_unrecognized": "No se pudo leer la imagen. Suba jpg, png o webp.",
+        "image_too_large": "La imagen aún supera 500KB después de comprimirla.",
+        "pdf_too_large": "La factura PDF no puede superar 10MB.",
+        "file_too_large": "La carga es demasiado grande. Reduzca archivos o comprímalos.",
+        "login_failed": "Usuario o contraseña incorrectos.",
+        "request_content_required": "Ingrese el contenido de compra.",
+        "item_description_required": "Ingrese el artículo en cada línea.",
+        "items_required": "Ingrese al menos una línea de compra.",
+        "number_required": "{field} debe ser un número válido.",
+        "number_positive": "{field} debe ser mayor que 0.",
+        "request_created": "Solicitud enviada.",
+        "request_approved": "Solicitud aprobada.",
+        "request_rejected": "Solicitud rechazada.",
+        "user_required": "Usuario y contraseña son obligatorios.",
+        "username_required": "El usuario es obligatorio.",
+        "self_admin_required": "No puede quitarse su propio rol de administrador ni desactivar su cuenta.",
+        "user_created": "Usuario creado.",
+        "user_updated": "Usuario actualizado.",
+        "username_exists": "El usuario ya existe.",
+        "export_sheet": "Solicitudes",
+        "export_request_id": "ID",
+        "export_line_total": "Total línea",
+        "export_request_total": "Total solicitud",
+    },
 }
 
 FIXED_USERS = [
@@ -159,8 +393,45 @@ class ValidationError(Exception):
     pass
 
 
+def current_language() -> str:
+    try:
+        return g.get("lang", "zh")
+    except RuntimeError:
+        return "zh"
+
+
+def t(key: str, **kwargs) -> str:
+    lang = current_language()
+    text = TRANSLATIONS.get(lang, TRANSLATIONS["zh"]).get(
+        key, TRANSLATIONS["zh"].get(key, key)
+    )
+    if kwargs:
+        return text.format(**kwargs)
+    return text
+
+
+def status_label(status: str) -> str:
+    return t(STATUS_TRANSLATION_KEYS.get(status, status))
+
+
+def role_label(role: str) -> str:
+    return t(ROLE_TRANSLATION_KEYS.get(role, role))
+
+
+def localized_status_labels() -> dict[str, str]:
+    return {status: status_label(status) for status in STATUS_LABELS}
+
+
+def localized_role_labels() -> dict[str, str]:
+    return {role: role_label(role) for role in ROLE_LABELS}
+
+
+def local_today() -> date:
+    return datetime.now(BOGOTA_TZ).date()
+
+
 def utc_now() -> str:
-    return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    return datetime.now(BOGOTA_TZ).replace(microsecond=0).isoformat()
 
 
 def get_db():
@@ -306,6 +577,14 @@ def init_db():
 
 @app.before_request
 def load_current_user():
+    requested_lang = request.values.get("lang")
+    if requested_lang in LANGUAGES:
+        session["lang"] = requested_lang
+    g.lang = session.get("lang", "zh")
+    if g.lang not in LANGUAGES:
+        g.lang = "zh"
+        session["lang"] = "zh"
+
     if "csrf_token" not in session:
         session["csrf_token"] = secrets.token_urlsafe(32)
 
@@ -345,9 +624,12 @@ def inject_globals():
     return {
         "current_user": user,
         "csrf_token": session.get("csrf_token"),
-        "status_labels": STATUS_LABELS,
+        "lang": current_language(),
+        "languages": LANGUAGES,
+        "t": t,
+        "status_labels": localized_status_labels(),
         "status_classes": STATUS_CLASSES,
-        "role_labels": ROLE_LABELS,
+        "role_labels": localized_role_labels(),
         "can_approve_requests": can_approve(user),
         "can_manage_user_accounts": can_manage_users(user),
         "can_submit_purchase_requests": can_submit_requests(user),
@@ -417,7 +699,7 @@ def parse_request_date(value: str) -> str:
     try:
         return date.fromisoformat(value).isoformat()
     except (TypeError, ValueError):
-        raise ValidationError("请选择有效的申请日期。")
+        raise ValidationError(t("invalid_date"))
 
 
 def parse_optional_date(value: str) -> str | None:
@@ -442,10 +724,10 @@ def parse_positive_decimal(value: str, field_name: str) -> Decimal:
     try:
         parsed = Decimal((value or "").strip().replace(",", ""))
     except InvalidOperation:
-        raise ValidationError(f"{field_name}必须是有效数字。")
+        raise ValidationError(t("number_required", field=field_name))
 
     if parsed <= 0:
-        raise ValidationError(f"{field_name}必须大于 0。")
+        raise ValidationError(t("number_positive", field=field_name))
     return parsed
 
 
@@ -485,10 +767,10 @@ def parse_items(posted_items: list[dict[str, str]]) -> list[dict[str, object]]:
             continue
 
         if not item["description"]:
-            raise ValidationError("请填写每一行的采购项目。")
+            raise ValidationError(t("item_description_required"))
 
-        unit_price = parse_positive_decimal(item["unit_price"], "单价")
-        quantity = parse_positive_decimal(item["quantity"], "数量")
+        unit_price = parse_positive_decimal(item["unit_price"], t("unit_price"))
+        quantity = parse_positive_decimal(item["quantity"], t("quantity"))
         line_total = unit_price * quantity
 
         parsed_items.append(
@@ -501,7 +783,7 @@ def parse_items(posted_items: list[dict[str, str]]) -> list[dict[str, object]]:
         )
 
     if not parsed_items:
-        raise ValidationError("请至少填写一行采购明细。")
+        raise ValidationError(t("items_required"))
     return parsed_items
 
 
@@ -572,7 +854,7 @@ def compress_image(file_storage) -> tuple[str, str, int]:
         with Image.open(file_storage.stream) as opened:
             original = normalize_image(opened)
     except (UnidentifiedImageError, OSError):
-        raise ValidationError("图片文件无法识别，请上传 jpg、png 或 webp。")
+        raise ValidationError(t("image_unrecognized"))
 
     working = original.copy()
     quality = 86
@@ -602,7 +884,7 @@ def compress_image(file_storage) -> tuple[str, str, int]:
         quality = 78
 
     if payload is None:
-        raise ValidationError("图片压缩后仍超过 500KB，请换一张更小的图片。")
+        raise ValidationError(t("image_too_large"))
 
     stored_name = f"{uuid.uuid4().hex}.jpg"
     path = os.path.join(app.config["UPLOAD_FOLDER"], stored_name)
@@ -616,7 +898,7 @@ def save_invoice_pdf(file_storage) -> tuple[str, str, int]:
     file_storage.stream.seek(0)
     payload = file_storage.read()
     if len(payload) > app.config["INVOICE_MAX_BYTES"]:
-        raise ValidationError("PDF 发票不能超过 10MB。")
+        raise ValidationError(t("pdf_too_large"))
 
     stored_name = f"{uuid.uuid4().hex}.pdf"
     path = os.path.join(app.config["UPLOAD_FOLDER"], stored_name)
@@ -739,7 +1021,14 @@ def format_bytes(value):
 def format_datetime(value):
     if not value:
         return ""
-    return str(value).replace("T", " ").replace("Z", "")
+    raw_value = str(value)
+    try:
+        parsed = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone(BOGOTA_TZ)
+        return parsed.strftime("%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return raw_value.replace("T", " ").replace("Z", "")
 
 
 @app.template_filter("money")
@@ -761,9 +1050,11 @@ def login():
         ).fetchone()
 
         if user is None or not check_password_hash(user["password_hash"], password):
-            flash("用户名或密码不正确。", "error")
+            flash(t("login_failed"), "error")
         else:
+            selected_lang = current_language()
             session.clear()
+            session["lang"] = selected_lang
             session["user_id"] = user["id"]
             session["csrf_token"] = secrets.token_urlsafe(32)
             return redirect(request.args.get("next") or url_for("index"))
@@ -775,7 +1066,9 @@ def login():
 @login_required
 def logout():
     validate_csrf()
+    selected_lang = current_language()
     session.clear()
+    session["lang"] = selected_lang
     return redirect(url_for("login"))
 
 
@@ -837,7 +1130,7 @@ def new_request():
         try:
             parsed_date = parse_request_date(request_date)
             if not content:
-                raise ValidationError("请填写采购内容。")
+                raise ValidationError(t("request_content_required"))
             items = parse_items(posted_items)
 
             saved_files = []
@@ -845,10 +1138,10 @@ def new_request():
             cursor = db.execute(
                 """
                 INSERT INTO purchase_requests
-                    (requester_id, request_date, content, updated_at)
-                VALUES (?, ?, ?, ?)
+                    (requester_id, request_date, content, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (g.user["id"], parsed_date, content, utc_now()),
+                (g.user["id"], parsed_date, content, utc_now(), utc_now()),
             )
             request_id = cursor.lastrowid
             insert_items(db, request_id, items)
@@ -866,7 +1159,7 @@ def new_request():
                     insert_attachment(db, request_id, attachment)
 
             db.commit()
-            flash("采购申请已提交。", "success")
+            flash(t("request_created"), "success")
             return redirect(url_for("request_detail", request_id=request_id))
         except ValidationError as error:
             get_db().rollback()
@@ -881,9 +1174,9 @@ def new_request():
 
     return render_template(
         "request_form.html",
-        today=date.today().isoformat(),
+        today=local_today().isoformat(),
         content=request.form.get("content", ""),
-        request_date=request.form.get("request_date", date.today().isoformat()),
+        request_date=request.form.get("request_date", local_today().isoformat()),
         items=posted_items,
     )
 
@@ -925,7 +1218,7 @@ def approve_request(request_id):
         (decision_comment, g.user["id"], utc_now(), utc_now(), request_id),
     )
     get_db().commit()
-    flash("已同意该采购申请。", "success")
+    flash(t("request_approved"), "success")
     return redirect(url_for("request_detail", request_id=request_id))
 
 
@@ -948,7 +1241,7 @@ def reject_request(request_id):
         (decision_comment, g.user["id"], utc_now(), utc_now(), request_id),
     )
     get_db().commit()
-    flash("已标记为未同意。", "success")
+    flash(t("request_rejected"), "success")
     return redirect(url_for("request_detail", request_id=request_id))
 
 
@@ -992,14 +1285,15 @@ def new_user():
             form["role"] = "requester"
 
         if not form["username"] or not form["password"]:
-            flash("用户名和密码不能为空。", "error")
+            flash(t("user_required"), "error")
         else:
             try:
                 get_db().execute(
                     """
                     INSERT INTO users
-                        (username, display_name, role, password_hash, is_active)
-                    VALUES (?, ?, ?, ?, ?)
+                        (username, display_name, role, password_hash, is_active,
+                         created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
                     """,
                     (
                         form["username"],
@@ -1007,13 +1301,14 @@ def new_user():
                         form["role"],
                         generate_password_hash(form["password"]),
                         1 if form["is_active"] == "1" else 0,
+                        utc_now(),
                     ),
                 )
                 get_db().commit()
-                flash("用户已新增。", "success")
+                flash(t("user_created"), "success")
                 return redirect(url_for("users"))
             except sqlite3.IntegrityError:
-                flash("用户名已存在。", "error")
+                flash(t("username_exists"), "error")
 
     return render_template("user_form.html", form=form, mode="new")
 
@@ -1049,11 +1344,11 @@ def edit_user(user_id):
             form["role"] = "requester"
 
         if not form["username"]:
-            flash("用户名不能为空。", "error")
+            flash(t("username_required"), "error")
         elif user_id == g.user["id"] and (
             form["role"] != "admin" or form["is_active"] != "1"
         ):
-            flash("不能取消当前登录管理员自己的管理员权限或启用状态。", "error")
+            flash(t("self_admin_required"), "error")
         else:
             try:
                 get_db().execute(
@@ -1079,10 +1374,10 @@ def edit_user(user_id):
                         (generate_password_hash(form["password"]), user_id),
                     )
                 get_db().commit()
-                flash("用户信息已更新。", "success")
+                flash(t("user_updated"), "success")
                 return redirect(url_for("users"))
             except sqlite3.IntegrityError:
-                flash("用户名已存在。", "error")
+                flash(t("username_exists"), "error")
 
     return render_template("user_form.html", form=form, mode="edit", edited_user=user)
 
@@ -1129,23 +1424,23 @@ def export_requests():
     filters = build_filters(request.args)
     workbook = Workbook()
     sheet = workbook.active
-    sheet.title = "采购申请"
+    sheet.title = t("export_sheet")
 
     headers = [
-        "申请编号",
-        "申请日期",
-        "提交人",
-        "采购内容",
-        "项目",
-        "单价",
-        "数量",
-        "行总价",
-        "申请总价",
-        "状态",
-        "审批人",
-        "审批时间",
-        "审批备注",
-        "提交时间",
+        t("export_request_id"),
+        t("request_date"),
+        t("requester"),
+        t("purchase_content"),
+        t("item"),
+        t("unit_price"),
+        t("quantity"),
+        t("export_line_total"),
+        t("export_request_total"),
+        t("status"),
+        t("approver"),
+        t("decision_time"),
+        t("decision_comment"),
+        t("submitted_at"),
     ]
     sheet.append(headers)
 
@@ -1165,7 +1460,7 @@ def export_requests():
                 if row["line_total_cents"] is not None
                 else "",
                 float(cents_to_decimal(row["total_cents"])),
-                STATUS_LABELS[row["status"]],
+                status_label(row["status"]),
                 row["approver_name"] or "",
                 format_datetime(row["decided_at"]),
                 row["decision_comment"] or "",
@@ -1197,7 +1492,7 @@ def export_requests():
     output = io.BytesIO()
     workbook.save(output)
     output.seek(0)
-    filename = f"procurement-requests-{date.today().isoformat()}.xlsx"
+    filename = f"procurement-requests-{local_today().isoformat()}.xlsx"
     return send_file(
         output,
         as_attachment=True,
@@ -1214,7 +1509,7 @@ def uploaded_file(filename):
 
 @app.errorhandler(413)
 def payload_too_large(error):
-    flash("上传内容太大，请减少文件数量或压缩后再上传。", "error")
+    flash(t("file_too_large"), "error")
     return redirect(request.referrer or url_for("new_request"))
 
 

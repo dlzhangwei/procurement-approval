@@ -1,26 +1,26 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="{{ lang }}">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}采购审批{% endblock %}</title>
+    <title>{% block title %}{{ t("app_name") }}{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
   </head>
   <body>
     <header class="topbar">
-      <a class="brand" href="{{ url_for('index') }}">采购审批</a>
+      <a class="brand" href="{{ url_for('index') }}">{{ t("app_name") }}</a>
       {% if current_user %}
-        <nav class="nav-actions" aria-label="主导航">
-          <a href="{{ url_for('index') }}">申请列表</a>
+        <nav class="nav-actions" aria-label="{{ t('nav_requests') }}">
+          <a href="{{ url_for('index') }}">{{ t("nav_requests") }}</a>
           {% if can_submit_purchase_requests %}
-            <a class="primary-link" href="{{ url_for('new_request') }}">新申请</a>
+            <a class="primary-link" href="{{ url_for('new_request') }}">{{ t("nav_new_request") }}</a>
           {% endif %}
           {% if can_manage_user_accounts %}
-            <a href="{{ url_for('users') }}">用户管理</a>
+            <a href="{{ url_for('users') }}">{{ t("nav_users") }}</a>
           {% endif %}
           <form action="{{ url_for('logout') }}" method="post">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="ghost-button">退出</button>
+            <button type="submit" class="ghost-button">{{ t("logout") }}</button>
           </form>
         </nav>
       {% endif %}

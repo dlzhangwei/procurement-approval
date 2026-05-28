@@ -1,25 +1,25 @@
 {% extends "base.html" %}
 
-{% block title %}用户管理 - 采购审批{% endblock %}
+{% block title %}{{ t("user_management") }} - {{ t("app_name") }}{% endblock %}
 
 {% block content %}
   <section class="page-heading">
     <div>
-      <h1>用户管理</h1>
-      <p>新增用户、调整角色、修改密码</p>
+      <h1>{{ t("user_management") }}</h1>
+      <p>{{ t("user_management_subtitle") }}</p>
     </div>
-    <a class="primary-button compact" href="{{ url_for('new_user') }}">新增用户</a>
+    <a class="primary-button compact" href="{{ url_for('new_user') }}">{{ t("add_user") }}</a>
   </section>
 
   <section class="table-wrap">
     <table>
       <thead>
         <tr>
-          <th>用户名</th>
-          <th>名称</th>
-          <th>角色</th>
-          <th>状态</th>
-          <th>创建时间</th>
+          <th>{{ t("username") }}</th>
+          <th>{{ t("display_name") }}</th>
+          <th>{{ t("role") }}</th>
+          <th>{{ t("account_status") }}</th>
+          <th>{{ t("created_at") }}</th>
           <th></th>
         </tr>
       </thead>
@@ -29,10 +29,10 @@
             <td>{{ user.username }}</td>
             <td>{{ user.display_name }}</td>
             <td>{{ role_labels[user.role] }}</td>
-            <td>{{ "启用" if user.is_active else "停用" }}</td>
+            <td>{{ t("active") if user.is_active else t("inactive") }}</td>
             <td>{{ user.created_at|datetime }}</td>
             <td class="right-cell">
-              <a href="{{ url_for('edit_user', user_id=user.id) }}">编辑</a>
+              <a href="{{ url_for('edit_user', user_id=user.id) }}">{{ t("edit") }}</a>
             </td>
           </tr>
         {% endfor %}

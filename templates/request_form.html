@@ -1,78 +1,78 @@
 {% extends "base.html" %}
 
-{% block title %}新申请 - 采购审批{% endblock %}
+{% block title %}{{ t("new_request_title") }} - {{ t("app_name") }}{% endblock %}
 
 {% block content %}
   <section class="page-heading">
     <div>
-      <h1>新申请</h1>
-      <p>提交采购日期、内容、明细、图片与发票</p>
+      <h1>{{ t("new_request_title") }}</h1>
+      <p>{{ t("new_request_subtitle") }}</p>
     </div>
   </section>
 
   <form method="post" enctype="multipart/form-data" class="form-panel">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label>
-      申请日期
+      {{ t("request_date") }}
       <input name="request_date" type="date" value="{{ request_date or today }}" required>
     </label>
     <label>
-      采购内容
+      {{ t("purchase_content") }}
       <textarea name="content" rows="8" required>{{ content }}</textarea>
     </label>
 
     <section class="line-items-panel">
       <div class="subheading-row">
-        <h2>采购明细</h2>
-        <button type="button" class="secondary-button compact" data-add-row>增加一行</button>
+        <h2>{{ t("purchase_items") }}</h2>
+        <button type="button" class="secondary-button compact" data-add-row>{{ t("add_row") }}</button>
       </div>
       <div class="items-table form-items-table">
         <div class="items-head">
-          <span>项目</span>
-          <span>单价</span>
-          <span>数量</span>
-          <span>总价</span>
+          <span>{{ t("item") }}</span>
+          <span>{{ t("unit_price") }}</span>
+          <span>{{ t("quantity") }}</span>
+          <span>{{ t("line_total") }}</span>
           <span></span>
         </div>
         <div data-items-body>
           {% for item in items %}
             <div class="item-row">
-              <input name="item_description" value="{{ item.description }}" placeholder="采购项目" required>
+              <input name="item_description" value="{{ item.description }}" placeholder="{{ t('purchase_item_placeholder') }}" required>
               <input class="unit-price" name="unit_price" type="number" min="0" step="0.01" value="{{ item.unit_price }}" placeholder="0.00" required>
               <input class="quantity" name="quantity" type="number" min="0" step="0.01" value="{{ item.quantity }}" placeholder="1" required>
               <input class="line-total" value="0.00" readonly>
-              <button type="button" class="icon-button" data-remove-row aria-label="删除">×</button>
+              <button type="button" class="icon-button" data-remove-row aria-label="{{ t('remove') }}">×</button>
             </div>
           {% endfor %}
         </div>
         <div class="items-total">
-          <span>合计</span>
+          <span>{{ t("total") }}</span>
           <strong data-grand-total>0.00</strong>
         </div>
       </div>
     </section>
 
     <label>
-      采购图片
+      {{ t("purchase_images") }}
       <input name="images" type="file" accept="image/*" multiple>
     </label>
     <label>
-      发票
+      {{ t("invoice") }}
       <input name="invoice" type="file" accept="image/*,.pdf" multiple>
     </label>
     <div class="form-actions">
-      <a class="secondary-button" href="{{ url_for('index') }}">取消</a>
-      <button type="submit" class="primary-button">提交申请</button>
+      <a class="secondary-button" href="{{ url_for('index') }}">{{ t("cancel") }}</a>
+      <button type="submit" class="primary-button">{{ t("submit_request") }}</button>
     </div>
   </form>
 
   <template id="item-row-template">
     <div class="item-row">
-      <input name="item_description" placeholder="采购项目" required>
+      <input name="item_description" placeholder="{{ t('purchase_item_placeholder') }}" required>
       <input class="unit-price" name="unit_price" type="number" min="0" step="0.01" placeholder="0.00" required>
       <input class="quantity" name="quantity" type="number" min="0" step="0.01" placeholder="1" required>
       <input class="line-total" value="0.00" readonly>
-      <button type="button" class="icon-button" data-remove-row aria-label="删除">×</button>
+      <button type="button" class="icon-button" data-remove-row aria-label="{{ t('remove') }}">×</button>
     </div>
   </template>
 

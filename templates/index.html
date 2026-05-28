@@ -1,48 +1,48 @@
 {% extends "base.html" %}
 
-{% block title %}申请列表 - 采购审批{% endblock %}
+{% block title %}{{ t("request_list") }} - {{ t("app_name") }}{% endblock %}
 
 {% block content %}
   <section class="page-heading">
     <div>
-      <h1>申请列表</h1>
-      <p>全部采购申请与审批状态</p>
+      <h1>{{ t("request_list") }}</h1>
+      <p>{{ t("request_list_subtitle") }}</p>
     </div>
     {% if can_submit_purchase_requests %}
-      <a class="primary-button compact" href="{{ url_for('new_request') }}">新申请</a>
+      <a class="primary-button compact" href="{{ url_for('new_request') }}">{{ t("nav_new_request") }}</a>
     {% endif %}
   </section>
 
   <form method="get" class="filters-panel">
     <label>
-      开始日期
+      {{ t("start_date") }}
       <input name="date_from" type="date" value="{{ filters.date_from or '' }}">
     </label>
     <label>
-      结束日期
+      {{ t("end_date") }}
       <input name="date_to" type="date" value="{{ filters.date_to or '' }}">
     </label>
     <label>
-      状态
+      {{ t("status") }}
       <select name="status">
-        <option value="all" {{ 'selected' if filters.status == 'all' else '' }}>全部</option>
+        <option value="all" {{ 'selected' if filters.status == 'all' else '' }}>{{ t("all") }}</option>
         {% for status, label in status_labels.items() %}
           <option value="{{ status }}" {{ 'selected' if filters.status == status else '' }}>{{ label }}</option>
         {% endfor %}
       </select>
     </label>
     <div class="filter-actions">
-      <button type="submit" class="primary-button compact">筛选</button>
-      <a class="secondary-button compact" href="{{ url_for('index') }}">重置</a>
+      <button type="submit" class="primary-button compact">{{ t("filter") }}</button>
+      <a class="secondary-button compact" href="{{ url_for('index') }}">{{ t("reset") }}</a>
       {% if can_manage_user_accounts %}
-        <a class="secondary-button compact" href="{{ url_for('export_requests', status=filters.status, date_from=filters.date_from or '', date_to=filters.date_to or '') }}">导出 Excel</a>
+        <a class="secondary-button compact" href="{{ url_for('export_requests', status=filters.status, date_from=filters.date_from or '', date_to=filters.date_to or '') }}">{{ t("export_excel") }}</a>
       {% endif %}
     </div>
   </form>
 
-  <section class="status-grid" aria-label="审批统计">
+  <section class="status-grid" aria-label="{{ t('status') }}">
     <a class="status-card {{ 'active' if filters.status == 'all' else '' }}" href="{{ url_for('index', date_from=filters.date_from or '', date_to=filters.date_to or '') }}">
-      <span>全部</span>
+      <span>{{ t("all") }}</span>
       <strong>{{ counts.all }}</strong>
     </a>
     {% for status, label in status_labels.items() %}
@@ -58,13 +58,13 @@
       <table>
         <thead>
           <tr>
-            <th>日期</th>
-            <th>内容</th>
-            <th>提交人</th>
-            <th>明细</th>
-            <th>总价</th>
-            <th>附件</th>
-            <th>状态</th>
+            <th>{{ t("date") }}</th>
+            <th>{{ t("content") }}</th>
+            <th>{{ t("requester") }}</th>
+            <th>{{ t("item_count") }}</th>
+            <th>{{ t("total_price") }}</th>
+            <th>{{ t("attachments_count") }}</th>
+            <th>{{ t("status") }}</th>
             <th></th>
           </tr>
         </thead>
@@ -81,14 +81,14 @@
                 <span class="status-pill {{ status_classes[item.status] }}">{{ status_labels[item.status] }}</span>
               </td>
               <td class="right-cell">
-                <a href="{{ url_for('request_detail', request_id=item.id) }}">查看</a>
+                <a href="{{ url_for('request_detail', request_id=item.id) }}">{{ t("view") }}</a>
               </td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
     {% else %}
-      <div class="empty-state">暂无采购申请</div>
+      <div class="empty-state">{{ t("no_requests") }}</div>
     {% endif %}
   </section>
 {% endblock %}

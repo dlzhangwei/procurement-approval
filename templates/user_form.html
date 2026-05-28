@@ -1,27 +1,27 @@
 {% extends "base.html" %}
 
-{% block title %}{{ "新增用户" if mode == "new" else "编辑用户" }} - 采购审批{% endblock %}
+{% block title %}{{ t("new_user") if mode == "new" else t("edit_user") }} - {{ t("app_name") }}{% endblock %}
 
 {% block content %}
   <section class="page-heading">
     <div>
-      <h1>{{ "新增用户" if mode == "new" else "编辑用户" }}</h1>
-      <p>设置登录信息与权限角色</p>
+      <h1>{{ t("new_user") if mode == "new" else t("edit_user") }}</h1>
+      <p>{{ t("user_form_subtitle") }}</p>
     </div>
   </section>
 
   <form method="post" class="form-panel">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label>
-      用户名
+      {{ t("username") }}
       <input name="username" value="{{ form.username }}" required>
     </label>
     <label>
-      显示名称
+      {{ t("display_name") }}
       <input name="display_name" value="{{ form.display_name }}">
     </label>
     <label>
-      角色
+      {{ t("role") }}
       <select name="role">
         {% for role, label in role_labels.items() %}
           <option value="{{ role }}" {{ 'selected' if form.role == role else '' }}>{{ label }}</option>
@@ -29,16 +29,16 @@
       </select>
     </label>
     <label>
-      {{ "密码" if mode == "new" else "新密码" }}
+      {{ t("password") if mode == "new" else t("new_password") }}
       <input name="password" type="password" autocomplete="new-password" {{ "required" if mode == "new" else "" }}>
     </label>
     <label class="checkbox-line">
       <input name="is_active" type="checkbox" value="1" {{ "checked" if form.is_active == "1" else "" }}>
-      启用账号
+      {{ t("enable_account") }}
     </label>
     <div class="form-actions">
-      <a class="secondary-button" href="{{ url_for('users') }}">取消</a>
-      <button type="submit" class="primary-button">保存</button>
+      <a class="secondary-button" href="{{ url_for('users') }}">{{ t("cancel") }}</a>
+      <button type="submit" class="primary-button">{{ t("save") }}</button>
     </div>
   </form>
 {% endblock %}

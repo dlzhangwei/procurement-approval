@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}申请 #{{ purchase_request.id }} - 采购审批{% endblock %}
+{% block title %}{{ t("request_number") }} #{{ purchase_request.id }} - {{ t("app_name") }}{% endblock %}
 
 {% block content %}
   <section class="page-heading">
     <div>
-      <h1>申请 #{{ purchase_request.id }}</h1>
+      <h1>{{ t("request_number") }} #{{ purchase_request.id }}</h1>
       <p>{{ purchase_request.requester_name }} · {{ purchase_request.request_date }}</p>
     </div>
     <span class="status-pill large {{ status_classes[purchase_request.status] }}">
@@ -15,27 +15,27 @@
 
   <section class="detail-layout">
     <article class="detail-main">
-      <h2>采购内容</h2>
+      <h2>{{ t("purchase_content") }}</h2>
       <p class="pre-line">{{ purchase_request.content }}</p>
     </article>
 
     <aside class="detail-side">
       <dl>
         <div>
-          <dt>申请总价</dt>
+          <dt>{{ t("request_total") }}</dt>
           <dd>{{ purchase_request.total_cents|money }}</dd>
         </div>
         <div>
-          <dt>提交时间</dt>
+          <dt>{{ t("submitted_at") }}</dt>
           <dd>{{ purchase_request.created_at|datetime }}</dd>
         </div>
         {% if purchase_request.decided_at %}
           <div>
-            <dt>审批人</dt>
+            <dt>{{ t("approver") }}</dt>
             <dd>{{ purchase_request.approver_name }}</dd>
           </div>
           <div>
-            <dt>审批时间</dt>
+            <dt>{{ t("decision_time") }}</dt>
             <dd>{{ purchase_request.decided_at|datetime }}</dd>
           </div>
         {% endif %}
@@ -47,16 +47,16 @@
   </section>
 
   <section class="attachments">
-    <h2>采购明细</h2>
+    <h2>{{ t("purchase_items") }}</h2>
     {% if items %}
       <div class="table-wrap plain-table-wrap">
         <table>
           <thead>
             <tr>
-              <th>项目</th>
-              <th>单价</th>
-              <th>数量</th>
-              <th>总价</th>
+              <th>{{ t("item") }}</th>
+              <th>{{ t("unit_price") }}</th>
+              <th>{{ t("quantity") }}</th>
+              <th>{{ t("line_total") }}</th>
             </tr>
           </thead>
           <tbody>
@@ -72,12 +72,12 @@
         </table>
       </div>
     {% else %}
-      <div class="empty-state">暂无采购明细</div>
+      <div class="empty-state">{{ t("no_items") }}</div>
     {% endif %}
   </section>
 
   <section class="attachments">
-    <h2>附件</h2>
+    <h2>{{ t("attachments") }}</h2>
     {% if attachments %}
       <div class="attachment-grid">
         {% for file in attachments %}
@@ -85,30 +85,30 @@
             {% if file.mime_type.startswith("image/") %}
               <img src="{{ url_for('uploaded_file', filename=file.stored_name) }}" alt="{{ file.original_name }}">
             {% else %}
-              <div class="pdf-tile">PDF</div>
+              <div class="pdf-tile">{{ t("pdf") }}</div>
             {% endif %}
-            <span>{{ "发票" if file.kind == "invoice" else "图片" }}</span>
+            <span>{{ t("invoice") if file.kind == "invoice" else t("image") }}</span>
             <small>{{ file.original_name }} · {{ file.size_bytes|bytes }}</small>
           </a>
         {% endfor %}
       </div>
     {% else %}
-      <div class="empty-state">暂无附件</div>
+      <div class="empty-state">{{ t("no_attachments") }}</div>
     {% endif %}
   </section>
 
   {% if can_approve_requests %}
     <section class="approval-panel">
-      <h2>审批</h2>
+      <h2>{{ t("approval") }}</h2>
       <form method="post" class="approval-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <label>
-          审批备注
+          {{ t("decision_comment") }}
           <textarea name="decision_comment" rows="3">{{ purchase_request.decision_comment or "" }}</textarea>
         </label>
         <div class="form-actions">
-          <button formaction="{{ url_for('reject_request', request_id=purchase_request.id) }}" class="danger-button" type="submit">未同意</button>
-          <button formaction="{{ url_for('approve_request', request_id=purchase_request.id) }}" class="primary-button" type="submit">同意</button>
+          <button formaction="{{ url_for('reject_request', request_id=purchase_request.id) }}" class="danger-button" type="submit">{{ t("reject") }}</button>
+          <button formaction="{{ url_for('approve_request', request_id=purchase_request.id) }}" class="primary-button" type="submit">{{ t("approve") }}</button>
         </div>
       </form>
     </section>

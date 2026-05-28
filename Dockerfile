@@ -2,11 +2,14 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV TZ=America/Bogota
 
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libjpeg62-turbo zlib1g \
+    && apt-get install -y --no-install-recommends libjpeg62-turbo tzdata zlib1g \
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo $TZ > /etc/timezone \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
