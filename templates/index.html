@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}申请列表 - 采购审批{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <h1>申请列表</h1>
+      <p>全部采购申请与审批状态</p>
+    </div>
+    <a class="primary-button compact" href="{{ url_for('new_request') }}">新申请</a>
+  </section>
+
+  <section class="status-grid" aria-label="审批统计">
+    <a class="status-card {{ 'active' if selected_status == 'all' else '' }}" href="{{ url_for('index') }}">
+      <span>全部</span>
+      <strong>{{ counts.all }}</strong>
+    </a>
+    {% for status, label in status_labels.items() %}
+      <a class="status-card {{ status_classes[status] }} {{ 'active' if selected_status == status else '' }}" href="{{ url_for('index', status=status) }}">
+        <span>{{ label }}</span>
+        <strong>{{ counts[status] }}</strong>
+      </a>
+    {% endfor %}
+  </section>
+
+  <section class="table-wrap">
+    {% if requests %}
+      <table>
+        <thead>
+          <tr>
+            <th>日期</th>
+            <th>内容</th>
+            <th>提交人</th>
+            <th>附件</th>
+            <th>状态</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in requests %}
+            <tr>
+              <td>{{ item.request_date }}</td>
+              <td class="content-cell">{{ summary(item.content) }}</td>
+              <td>{{ item.requester_name }}</td>
+              <td>{{ item.attachment_count }}</td>
+              <td>
+                <span class="status-pill {{ status_classes[item.status] }}">{{ status_labels[item.status] }}</span>
+              </td>
+              <td class="right-cell">
+                <a href="{{ url_for('request_detail', request_id=item.id) }}">查看</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty-state">暂无采购申请</div>
+    {% endif %}
+  </section>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}新申请 - 采购审批{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <h1>新申请</h1>
+      <p>提交采购日期、内容、图片与发票</p>
+    </div>
+  </section>
+
+  <form method="post" enctype="multipart/form-data" class="form-panel">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>
+      申请日期
+      <input name="request_date" type="date" value="{{ request_date or today }}" required>
+    </label>
+    <label>
+      采购内容
+      <textarea name="content" rows="8" required>{{ content }}</textarea>
+    </label>
+    <label>
+      采购图片
+      <input name="images" type="file" accept="image/*" multiple>
+    </label>
+    <label>
+      发票
+      <input name="invoice" type="file" accept="image/*,.pdf" multiple>
+    </label>
+    <div class="form-actions">
+      <a class="secondary-button" href="{{ url_for('index') }}">取消</a>
+      <button type="submit" class="primary-button">提交申请</button>
+    </div>
+  </form>
+{% endblock %}

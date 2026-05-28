@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}申请 #{{ purchase_request.id }} - 采购审批{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <h1>申请 #{{ purchase_request.id }}</h1>
+      <p>{{ purchase_request.requester_name }} · {{ purchase_request.request_date }}</p>
+    </div>
+    <span class="status-pill large {{ status_classes[purchase_request.status] }}">
+      {{ status_labels[purchase_request.status] }}
+    </span>
+  </section>
+
+  <section class="detail-layout">
+    <article class="detail-main">
+      <h2>采购内容</h2>
+      <p class="pre-line">{{ purchase_request.content }}</p>
+    </article>
+
+    <aside class="detail-side">
+      <dl>
+        <div>
+          <dt>提交时间</dt>
+          <dd>{{ purchase_request.created_at|datetime }}</dd>
+        </div>
+        {% if purchase_request.decided_at %}
+          <div>
+            <dt>审批人</dt>
+            <dd>{{ purchase_request.approver_name }}</dd>
+          </div>
+          <div>
+            <dt>审批时间</dt>
+            <dd>{{ purchase_request.decided_at|datetime }}</dd>
+          </div>
+        {% endif %}
+      </dl>
+      {% if purchase_request.decision_comment %}
+        <div class="decision-note">{{ purchase_request.decision_comment }}</div>
+      {% endif %}
+    </aside>
+  </section>
+
+  <section class="attachments">
+    <h2>附件</h2>
+    {% if attachments %}
+      <div class="attachment-grid">
+        {% for file in attachments %}
+          <a class="attachment-card" href="{{ url_for('uploaded_file', filename=file.stored_name) }}" target="_blank" rel="noreferrer">
+            {% if file.mime_type.startswith("image/") %}
+              <img src="{{ url_for('uploaded_file', filename=file.stored_name) }}" alt="{{ file.original_name }}">
+            {% else %}
+              <div class="pdf-tile">PDF</div>
+            {% endif %}
+            <span>{{ "发票" if file.kind == "invoice" else "图片" }}</span>
+            <small>{{ file.original_name }} · {{ file.size_bytes|bytes }}</small>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">暂无附件</div>
+    {% endif %}
+  </section>
+
+  {% if current_user.role == "approver" %}
+    <section class="approval-panel">
+      <h2>审批</h2>
+      <form method="post" class="approval-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label>
+          审批备注
+          <textarea name="decision_comment" rows="3">{{ purchase_request.decision_comment or "" }}</textarea>
+        </label>
+        <div class="form-actions">
+          <button formaction="{{ url_for('reject_request', request_id=purchase_request.id) }}" class="danger-button" type="submit">未同意</button>
+          <button formaction="{{ url_for('approve_request', request_id=purchase_request.id) }}" class="primary-button" type="submit">同意</button>
+        </div>
+      </form>
+    </section>
+  {% endif %}
+{% endblock %}

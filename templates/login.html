@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}登录 - 采购审批{% endblock %}
+
+{% block content %}
+  <section class="auth-layout">
+    <div class="auth-panel">
+      <h1>登录</h1>
+      <form method="post" class="form-stack">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label>
+          用户名
+          <input name="username" autocomplete="username" required autofocus>
+        </label>
+        <label>
+          密码
+          <input name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <button type="submit" class="primary-button">进入系统</button>
+      </form>
+    </div>
+  </section>
+{% endblock %}
