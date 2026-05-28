@@ -43,7 +43,7 @@ def main():
         app.config.update(TESTING=True)
         client = app.test_client()
 
-        login(client, "user1", "user1123")
+        login(client, "carlos", "carlos1234")
 
         image = BytesIO()
         Image.new("RGB", (3000, 3000), (170, 42, 54)).save(image, "PNG")
@@ -56,6 +56,9 @@ def main():
                 "csrf_token": csrf(client),
                 "request_date": "2026-05-28",
                 "content": "Smoke test purchase request",
+                "item_description": ["Laptop", "Mouse"],
+                "unit_price": ["1200.50", "25.00"],
+                "quantity": ["2", "3"],
                 "images": (image, "purchase.png"),
                 "invoice": (invoice, "invoice.pdf"),
             },
@@ -77,6 +80,15 @@ def main():
         ).fetchone()
         assert image_row is not None
         assert image_row["size_bytes"] <= 500 * 1024
+        total = db.execute(
+            """
+            SELECT SUM(line_total_cents) AS total_cents
+            FROM purchase_request_items
+            WHERE request_id = ?
+            """,
+            (request_id,),
+        ).fetchone()["total_cents"]
+        assert total == 247600
 
         response = client.post(
             "/logout",
@@ -85,7 +97,7 @@ def main():
         )
         assert response.status_code == 302
 
-        login(client, "approver", "approver123")
+        login(client, "admin", "admin1234")
         response = client.post(
             f"/requests/{request_id}/approve",
             data={"csrf_token": csrf(client), "decision_comment": "OK"},
@@ -97,6 +109,12 @@ def main():
             "SELECT status FROM purchase_requests WHERE id = ?", (request_id,)
         ).fetchone()["status"]
         assert status == "approved"
+        export_response = client.get("/export.xlsx?status=approved")
+        assert export_response.status_code == 200
+        assert (
+            export_response.content_type
+            == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
         db.close()
 
     print("smoke-ok")

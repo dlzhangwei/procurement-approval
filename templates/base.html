@@ -12,7 +12,12 @@
       {% if current_user %}
         <nav class="nav-actions" aria-label="主导航">
           <a href="{{ url_for('index') }}">申请列表</a>
-          <a class="primary-link" href="{{ url_for('new_request') }}">新申请</a>
+          {% if can_submit_purchase_requests %}
+            <a class="primary-link" href="{{ url_for('new_request') }}">新申请</a>
+          {% endif %}
+          {% if can_manage_user_accounts %}
+            <a href="{{ url_for('users') }}">用户管理</a>
+          {% endif %}
           <form action="{{ url_for('logout') }}" method="post">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="submit" class="ghost-button">退出</button>
@@ -25,7 +30,7 @@
       {% if current_user %}
         <div class="user-strip">
           <span>{{ current_user.display_name }}</span>
-          <span>{{ "审批人" if current_user.role == "approver" else "申请用户" }}</span>
+          <span>{{ role_labels[current_user.role] }}</span>
         </div>
       {% endif %}
 

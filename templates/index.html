@@ -8,16 +8,45 @@
       <h1>申请列表</h1>
       <p>全部采购申请与审批状态</p>
     </div>
-    <a class="primary-button compact" href="{{ url_for('new_request') }}">新申请</a>
+    {% if can_submit_purchase_requests %}
+      <a class="primary-button compact" href="{{ url_for('new_request') }}">新申请</a>
+    {% endif %}
   </section>
 
+  <form method="get" class="filters-panel">
+    <label>
+      开始日期
+      <input name="date_from" type="date" value="{{ filters.date_from or '' }}">
+    </label>
+    <label>
+      结束日期
+      <input name="date_to" type="date" value="{{ filters.date_to or '' }}">
+    </label>
+    <label>
+      状态
+      <select name="status">
+        <option value="all" {{ 'selected' if filters.status == 'all' else '' }}>全部</option>
+        {% for status, label in status_labels.items() %}
+          <option value="{{ status }}" {{ 'selected' if filters.status == status else '' }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="filter-actions">
+      <button type="submit" class="primary-button compact">筛选</button>
+      <a class="secondary-button compact" href="{{ url_for('index') }}">重置</a>
+      {% if can_manage_user_accounts %}
+        <a class="secondary-button compact" href="{{ url_for('export_requests', status=filters.status, date_from=filters.date_from or '', date_to=filters.date_to or '') }}">导出 Excel</a>
+      {% endif %}
+    </div>
+  </form>
+
   <section class="status-grid" aria-label="审批统计">
-    <a class="status-card {{ 'active' if selected_status == 'all' else '' }}" href="{{ url_for('index') }}">
+    <a class="status-card {{ 'active' if filters.status == 'all' else '' }}" href="{{ url_for('index', date_from=filters.date_from or '', date_to=filters.date_to or '') }}">
       <span>全部</span>
       <strong>{{ counts.all }}</strong>
     </a>
     {% for status, label in status_labels.items() %}
-      <a class="status-card {{ status_classes[status] }} {{ 'active' if selected_status == status else '' }}" href="{{ url_for('index', status=status) }}">
+      <a class="status-card {{ status_classes[status] }} {{ 'active' if filters.status == status else '' }}" href="{{ url_for('index', status=status, date_from=filters.date_from or '', date_to=filters.date_to or '') }}">
         <span>{{ label }}</span>
         <strong>{{ counts[status] }}</strong>
       </a>
@@ -32,6 +61,8 @@
             <th>日期</th>
             <th>内容</th>
             <th>提交人</th>
+            <th>明细</th>
+            <th>总价</th>
             <th>附件</th>
             <th>状态</th>
             <th></th>
@@ -43,6 +74,8 @@
               <td>{{ item.request_date }}</td>
               <td class="content-cell">{{ summary(item.content) }}</td>
               <td>{{ item.requester_name }}</td>
+              <td>{{ item.item_count }}</td>
+              <td>{{ item.total_cents|money }}</td>
               <td>{{ item.attachment_count }}</td>
               <td>
                 <span class="status-pill {{ status_classes[item.status] }}">{{ status_labels[item.status] }}</span>

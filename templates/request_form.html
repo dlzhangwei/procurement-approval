@@ -6,7 +6,7 @@
   <section class="page-heading">
     <div>
       <h1>新申请</h1>
-      <p>提交采购日期、内容、图片与发票</p>
+      <p>提交采购日期、内容、明细、图片与发票</p>
     </div>
   </section>
 
@@ -20,6 +20,38 @@
       采购内容
       <textarea name="content" rows="8" required>{{ content }}</textarea>
     </label>
+
+    <section class="line-items-panel">
+      <div class="subheading-row">
+        <h2>采购明细</h2>
+        <button type="button" class="secondary-button compact" data-add-row>增加一行</button>
+      </div>
+      <div class="items-table form-items-table">
+        <div class="items-head">
+          <span>项目</span>
+          <span>单价</span>
+          <span>数量</span>
+          <span>总价</span>
+          <span></span>
+        </div>
+        <div data-items-body>
+          {% for item in items %}
+            <div class="item-row">
+              <input name="item_description" value="{{ item.description }}" placeholder="采购项目" required>
+              <input class="unit-price" name="unit_price" type="number" min="0" step="0.01" value="{{ item.unit_price }}" placeholder="0.00" required>
+              <input class="quantity" name="quantity" type="number" min="0" step="0.01" value="{{ item.quantity }}" placeholder="1" required>
+              <input class="line-total" value="0.00" readonly>
+              <button type="button" class="icon-button" data-remove-row aria-label="删除">×</button>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="items-total">
+          <span>合计</span>
+          <strong data-grand-total>0.00</strong>
+        </div>
+      </div>
+    </section>
+
     <label>
       采购图片
       <input name="images" type="file" accept="image/*" multiple>
@@ -33,4 +65,57 @@
       <button type="submit" class="primary-button">提交申请</button>
     </div>
   </form>
+
+  <template id="item-row-template">
+    <div class="item-row">
+      <input name="item_description" placeholder="采购项目" required>
+      <input class="unit-price" name="unit_price" type="number" min="0" step="0.01" placeholder="0.00" required>
+      <input class="quantity" name="quantity" type="number" min="0" step="0.01" placeholder="1" required>
+      <input class="line-total" value="0.00" readonly>
+      <button type="button" class="icon-button" data-remove-row aria-label="删除">×</button>
+    </div>
+  </template>
+
+  <script>
+    const body = document.querySelector("[data-items-body]");
+    const template = document.querySelector("#item-row-template");
+    const grandTotal = document.querySelector("[data-grand-total]");
+
+    function money(value) {
+      return Number(value || 0).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    function recalc() {
+      let total = 0;
+      body.querySelectorAll(".item-row").forEach((row) => {
+        const unit = Number(row.querySelector(".unit-price").value || 0);
+        const quantity = Number(row.querySelector(".quantity").value || 0);
+        const line = unit * quantity;
+        row.querySelector(".line-total").value = money(line);
+        total += line;
+      });
+      grandTotal.textContent = money(total);
+    }
+
+    document.querySelector("[data-add-row]").addEventListener("click", () => {
+      body.appendChild(template.content.firstElementChild.cloneNode(true));
+      recalc();
+    });
+
+    body.addEventListener("click", (event) => {
+      if (!event.target.matches("[data-remove-row]")) {
+        return;
+      }
+      if (body.querySelectorAll(".item-row").length > 1) {
+        event.target.closest(".item-row").remove();
+      }
+      recalc();
+    });
+
+    body.addEventListener("input", recalc);
+    recalc();
+  </script>
 {% endblock %}

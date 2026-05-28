@@ -22,6 +22,10 @@
     <aside class="detail-side">
       <dl>
         <div>
+          <dt>申请总价</dt>
+          <dd>{{ purchase_request.total_cents|money }}</dd>
+        </div>
+        <div>
           <dt>提交时间</dt>
           <dd>{{ purchase_request.created_at|datetime }}</dd>
         </div>
@@ -40,6 +44,36 @@
         <div class="decision-note">{{ purchase_request.decision_comment }}</div>
       {% endif %}
     </aside>
+  </section>
+
+  <section class="attachments">
+    <h2>采购明细</h2>
+    {% if items %}
+      <div class="table-wrap plain-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>项目</th>
+              <th>单价</th>
+              <th>数量</th>
+              <th>总价</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
+              <tr>
+                <td>{{ item.description }}</td>
+                <td>{{ item.unit_price_cents|money }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>{{ item.line_total_cents|money }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">暂无采购明细</div>
+    {% endif %}
   </section>
 
   <section class="attachments">
@@ -63,7 +97,7 @@
     {% endif %}
   </section>
 
-  {% if current_user.role == "approver" %}
+  {% if can_approve_requests %}
     <section class="approval-panel">
       <h2>审批</h2>
       <form method="post" class="approval-form">

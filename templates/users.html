@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}用户管理 - 采购审批{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <h1>用户管理</h1>
+      <p>新增用户、调整角色、修改密码</p>
+    </div>
+    <a class="primary-button compact" href="{{ url_for('new_user') }}">新增用户</a>
+  </section>
+
+  <section class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>用户名</th>
+          <th>名称</th>
+          <th>角色</th>
+          <th>状态</th>
+          <th>创建时间</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+          <tr>
+            <td>{{ user.username }}</td>
+            <td>{{ user.display_name }}</td>
+            <td>{{ role_labels[user.role] }}</td>
+            <td>{{ "启用" if user.is_active else "停用" }}</td>
+            <td>{{ user.created_at|datetime }}</td>
+            <td class="right-cell">
+              <a href="{{ url_for('edit_user', user_id=user.id) }}">编辑</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}

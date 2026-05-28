@@ -4,6 +4,7 @@ import secrets
 import sqlite3
 import uuid
 from datetime import date, datetime
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from functools import wraps
 from pathlib import Path
 
@@ -15,10 +16,14 @@ from flask import (
     redirect,
     render_template,
     request,
+    send_file,
     send_from_directory,
     session,
     url_for,
 )
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils import get_column_letter
 from PIL import Image, ImageOps, UnidentifiedImageError
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
@@ -31,8 +36,8 @@ except ImportError:
     pass
 
 
-BASE_DIR = Path(__file__).resolve().parent
 Image.MAX_IMAGE_PIXELS = 30_000_000
+MONEY_QUANT = Decimal("0.01")
 
 app = Flask(__name__, instance_relative_config=True)
 app.config.from_mapping(
@@ -58,42 +63,48 @@ STATUS_CLASSES = {
     "rejected": "status-rejected",
 }
 
-DEFAULT_USERS = [
+ROLE_LABELS = {
+    "admin": "管理员",
+    "approver": "审批人",
+    "requester": "申请人",
+}
+
+FIXED_USERS = [
     {
-        "username": "approver",
-        "display_name": "审批人",
+        "username": "jose",
+        "display_name": "Jose",
         "role": "approver",
-        "password_env": "APPROVER_PASSWORD",
-        "default_password": "approver123",
+        "password": "jose1234",
     },
     {
-        "username": "user1",
-        "display_name": "申请用户一",
-        "role": "user",
-        "password_env": "USER1_PASSWORD",
-        "default_password": "user1123",
+        "username": "admin",
+        "display_name": "Admin",
+        "role": "admin",
+        "password": "admin1234",
     },
     {
-        "username": "user2",
-        "display_name": "申请用户二",
-        "role": "user",
-        "password_env": "USER2_PASSWORD",
-        "default_password": "user2123",
+        "username": "carlos",
+        "display_name": "Carlos",
+        "role": "requester",
+        "password": "carlos1234",
     },
 ]
 
-SCHEMA = """
-PRAGMA foreign_keys = ON;
+DEPRECATED_BOOTSTRAP_USERS = ("approver", "user1", "user2")
 
-CREATE TABLE IF NOT EXISTS users (
+USERS_TABLE_SQL = """
+CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
     display_name TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('approver', 'user')),
+    role TEXT NOT NULL CHECK (role IN ('admin', 'approver', 'requester')),
     password_hash TEXT NOT NULL,
+    is_active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+"""
 
+CORE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS purchase_requests (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     requester_id INTEGER NOT NULL REFERENCES users(id),
@@ -106,6 +117,17 @@ CREATE TABLE IF NOT EXISTS purchase_requests (
     decided_at TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS purchase_request_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    request_id INTEGER NOT NULL REFERENCES purchase_requests(id)
+        ON DELETE CASCADE,
+    description TEXT NOT NULL,
+    unit_price_cents INTEGER NOT NULL,
+    quantity TEXT NOT NULL,
+    line_total_cents INTEGER NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS attachments (
@@ -122,8 +144,12 @@ CREATE TABLE IF NOT EXISTS attachments (
 
 CREATE INDEX IF NOT EXISTS idx_purchase_requests_status
     ON purchase_requests(status);
+CREATE INDEX IF NOT EXISTS idx_purchase_requests_request_date
+    ON purchase_requests(request_date);
 CREATE INDEX IF NOT EXISTS idx_purchase_requests_created_at
     ON purchase_requests(created_at);
+CREATE INDEX IF NOT EXISTS idx_items_request_id
+    ON purchase_request_items(request_id);
 CREATE INDEX IF NOT EXISTS idx_attachments_request_id
     ON attachments(request_id);
 """
@@ -152,22 +178,78 @@ def close_db(error=None):
         db.close()
 
 
-def init_db():
-    os.makedirs(app.instance_path, exist_ok=True)
-    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+def table_exists(db, table_name: str) -> bool:
+    return (
+        db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+            (table_name,),
+        ).fetchone()
+        is not None
+    )
 
-    db = sqlite3.connect(app.config["DATABASE"])
-    db.row_factory = sqlite3.Row
-    db.executescript(SCHEMA)
-    seed_users(db)
-    db.commit()
-    db.close()
+
+def table_columns(db, table_name: str) -> set[str]:
+    if not table_exists(db, table_name):
+        return set()
+    return {row["name"] for row in db.execute(f"PRAGMA table_info({table_name})")}
+
+
+def users_table_supports_roles(db) -> bool:
+    row = db.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'"
+    ).fetchone()
+    if row is None or row["sql"] is None:
+        return False
+    sql = row["sql"].lower()
+    return "admin" in sql and "requester" in sql and "is_active" in table_columns(db, "users")
+
+
+def normalize_role(role: str) -> str:
+    if role == "user":
+        return "requester"
+    if role in ROLE_LABELS:
+        return role
+    return "requester"
+
+
+def ensure_users_schema(db):
+    if not table_exists(db, "users"):
+        db.execute(USERS_TABLE_SQL)
+        return
+
+    if users_table_supports_roles(db):
+        return
+
+    existing_columns = table_columns(db, "users")
+    rows = db.execute("SELECT * FROM users ORDER BY id").fetchall()
+
+    db.execute("CREATE TABLE users_new " + USERS_TABLE_SQL.split("users", 1)[1])
+    for row in rows:
+        db.execute(
+            """
+            INSERT INTO users_new
+                (id, username, display_name, role, password_hash, is_active, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                row["id"],
+                row["username"],
+                row["display_name"],
+                normalize_role(row["role"]),
+                row["password_hash"],
+                row["is_active"] if "is_active" in existing_columns else 1,
+                row["created_at"]
+                if "created_at" in existing_columns and row["created_at"]
+                else utc_now(),
+            ),
+        )
+
+    db.execute("DROP TABLE users")
+    db.execute("ALTER TABLE users_new RENAME TO users")
 
 
 def seed_users(db):
-    for user in DEFAULT_USERS:
-        password = os.environ.get(user["password_env"], user["default_password"])
-        password_hash = generate_password_hash(password)
+    for user in FIXED_USERS:
         existing = db.execute(
             "SELECT id FROM users WHERE username = ?", (user["username"],)
         ).fetchone()
@@ -176,29 +258,50 @@ def seed_users(db):
             db.execute(
                 """
                 UPDATE users
-                SET display_name = ?, role = ?, password_hash = ?
+                SET display_name = ?, role = ?, is_active = 1
                 WHERE username = ?
                 """,
-                (
-                    user["display_name"],
-                    user["role"],
-                    password_hash,
-                    user["username"],
-                ),
+                (user["display_name"], user["role"], user["username"]),
             )
         else:
             db.execute(
                 """
-                INSERT INTO users (username, display_name, role, password_hash)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO users
+                    (username, display_name, role, password_hash, is_active)
+                VALUES (?, ?, ?, ?, 1)
                 """,
                 (
                     user["username"],
                     user["display_name"],
                     user["role"],
-                    password_hash,
+                    generate_password_hash(user["password"]),
                 ),
             )
+
+    db.execute(
+        f"""
+        UPDATE users
+        SET is_active = 0
+        WHERE username IN ({",".join("?" for _ in DEPRECATED_BOOTSTRAP_USERS)})
+        """,
+        DEPRECATED_BOOTSTRAP_USERS,
+    )
+
+
+def init_db():
+    os.makedirs(app.instance_path, exist_ok=True)
+    Path(app.config["DATABASE"]).parent.mkdir(parents=True, exist_ok=True)
+    Path(app.config["UPLOAD_FOLDER"]).mkdir(parents=True, exist_ok=True)
+
+    db = sqlite3.connect(app.config["DATABASE"])
+    db.row_factory = sqlite3.Row
+    db.execute("PRAGMA foreign_keys = OFF")
+    ensure_users_schema(db)
+    db.executescript(CORE_SCHEMA)
+    seed_users(db)
+    db.commit()
+    db.execute("PRAGMA foreign_keys = ON")
+    db.close()
 
 
 @app.before_request
@@ -210,18 +313,44 @@ def load_current_user():
     g.user = None
     if user_id is not None:
         g.user = get_db().execute(
-            "SELECT id, username, display_name, role FROM users WHERE id = ?",
+            """
+            SELECT id, username, display_name, role, is_active
+            FROM users
+            WHERE id = ? AND is_active = 1
+            """,
             (user_id,),
         ).fetchone()
+        if g.user is None:
+            session.clear()
+
+
+def can_approve(user=None) -> bool:
+    user = user or g.get("user")
+    return bool(user and user["role"] in {"admin", "approver"})
+
+
+def can_manage_users(user=None) -> bool:
+    user = user or g.get("user")
+    return bool(user and user["role"] == "admin")
+
+
+def can_submit_requests(user=None) -> bool:
+    user = user or g.get("user")
+    return bool(user and user["role"] == "requester")
 
 
 @app.context_processor
 def inject_globals():
+    user = g.get("user")
     return {
-        "current_user": g.get("user"),
+        "current_user": user,
         "csrf_token": session.get("csrf_token"),
         "status_labels": STATUS_LABELS,
         "status_classes": STATUS_CLASSES,
+        "role_labels": ROLE_LABELS,
+        "can_approve_requests": can_approve(user),
+        "can_manage_user_accounts": can_manage_users(user),
+        "can_submit_purchase_requests": can_submit_requests(user),
     }
 
 
@@ -240,7 +369,31 @@ def approver_required(view):
     def wrapped_view(**kwargs):
         if g.user is None:
             return redirect(url_for("login", next=request.path))
-        if g.user["role"] != "approver":
+        if not can_approve(g.user):
+            abort(403)
+        return view(**kwargs)
+
+    return wrapped_view
+
+
+def admin_required(view):
+    @wraps(view)
+    def wrapped_view(**kwargs):
+        if g.user is None:
+            return redirect(url_for("login", next=request.path))
+        if not can_manage_users(g.user):
+            abort(403)
+        return view(**kwargs)
+
+    return wrapped_view
+
+
+def requester_required(view):
+    @wraps(view)
+    def wrapped_view(**kwargs):
+        if g.user is None:
+            return redirect(url_for("login", next=request.path))
+        if not can_submit_requests(g.user):
             abort(403)
         return view(**kwargs)
 
@@ -265,6 +418,137 @@ def parse_request_date(value: str) -> str:
         return date.fromisoformat(value).isoformat()
     except (TypeError, ValueError):
         raise ValidationError("请选择有效的申请日期。")
+
+
+def parse_optional_date(value: str) -> str | None:
+    value = (value or "").strip()
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value).isoformat()
+    except ValueError:
+        return None
+
+
+def cents_to_decimal(cents: int | None) -> Decimal:
+    return (Decimal(cents or 0) / Decimal(100)).quantize(MONEY_QUANT)
+
+
+def decimal_to_cents(value: Decimal) -> int:
+    return int((value * Decimal(100)).quantize(Decimal("1"), ROUND_HALF_UP))
+
+
+def parse_positive_decimal(value: str, field_name: str) -> Decimal:
+    try:
+        parsed = Decimal((value or "").strip().replace(",", ""))
+    except InvalidOperation:
+        raise ValidationError(f"{field_name}必须是有效数字。")
+
+    if parsed <= 0:
+        raise ValidationError(f"{field_name}必须大于 0。")
+    return parsed
+
+
+def decimal_text(value: Decimal) -> str:
+    text = format(value.normalize(), "f")
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
+    return text or "0"
+
+
+def extract_form_items(form) -> list[dict[str, str]]:
+    descriptions = form.getlist("item_description")
+    unit_prices = form.getlist("unit_price")
+    quantities = form.getlist("quantity")
+    row_count = max(1, len(descriptions), len(unit_prices), len(quantities))
+    items = []
+
+    for index in range(row_count):
+        items.append(
+            {
+                "description": descriptions[index].strip()
+                if index < len(descriptions)
+                else "",
+                "unit_price": unit_prices[index].strip()
+                if index < len(unit_prices)
+                else "",
+                "quantity": quantities[index].strip() if index < len(quantities) else "",
+            }
+        )
+    return items
+
+
+def parse_items(posted_items: list[dict[str, str]]) -> list[dict[str, object]]:
+    parsed_items = []
+    for item in posted_items:
+        if not item["description"] and not item["unit_price"] and not item["quantity"]:
+            continue
+
+        if not item["description"]:
+            raise ValidationError("请填写每一行的采购项目。")
+
+        unit_price = parse_positive_decimal(item["unit_price"], "单价")
+        quantity = parse_positive_decimal(item["quantity"], "数量")
+        line_total = unit_price * quantity
+
+        parsed_items.append(
+            {
+                "description": item["description"],
+                "unit_price_cents": decimal_to_cents(unit_price),
+                "quantity": decimal_text(quantity),
+                "line_total_cents": decimal_to_cents(line_total),
+            }
+        )
+
+    if not parsed_items:
+        raise ValidationError("请至少填写一行采购明细。")
+    return parsed_items
+
+
+def build_filters(args):
+    selected_status = args.get("status", "all")
+    if selected_status not in {"all", *STATUS_LABELS.keys()}:
+        selected_status = "all"
+
+    return {
+        "status": selected_status,
+        "date_from": parse_optional_date(args.get("date_from", "")),
+        "date_to": parse_optional_date(args.get("date_to", "")),
+    }
+
+
+def filter_params(filters, include_status=True):
+    clauses = []
+    params = []
+    if include_status and filters["status"] != "all":
+        clauses.append("pr.status = ?")
+        params.append(filters["status"])
+    if filters["date_from"]:
+        clauses.append("pr.request_date >= ?")
+        params.append(filters["date_from"])
+    if filters["date_to"]:
+        clauses.append("pr.request_date <= ?")
+        params.append(filters["date_to"])
+    return clauses, params
+
+
+def status_counts(filters):
+    clauses, params = filter_params(filters, include_status=False)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    rows = get_db().execute(
+        f"""
+        SELECT pr.status, COUNT(*) AS count
+        FROM purchase_requests pr
+        {where}
+        GROUP BY pr.status
+        """,
+        params,
+    ).fetchall()
+    counts = {status: 0 for status in STATUS_LABELS}
+    for row in rows:
+        counts[row["status"]] = row["count"]
+    counts["all"] = sum(counts.values())
+    return counts
 
 
 def normalize_image(image: Image.Image) -> Image.Image:
@@ -383,16 +667,42 @@ def insert_attachment(db, request_id: int, attachment):
     )
 
 
+def insert_items(db, request_id: int, items):
+    for index, item in enumerate(items):
+        db.execute(
+            """
+            INSERT INTO purchase_request_items
+                (request_id, description, unit_price_cents, quantity,
+                 line_total_cents, sort_order)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                request_id,
+                item["description"],
+                item["unit_price_cents"],
+                item["quantity"],
+                item["line_total_cents"],
+                index,
+            ),
+        )
+
+
 def load_request(request_id: int):
     purchase_request = get_db().execute(
         """
         SELECT
             pr.*,
             requester.display_name AS requester_name,
-            approver.display_name AS approver_name
+            approver.display_name AS approver_name,
+            COALESCE(item_totals.total_cents, 0) AS total_cents
         FROM purchase_requests pr
         JOIN users requester ON requester.id = pr.requester_id
         LEFT JOIN users approver ON approver.id = pr.decided_by
+        LEFT JOIN (
+            SELECT request_id, SUM(line_total_cents) AS total_cents
+            FROM purchase_request_items
+            GROUP BY request_id
+        ) item_totals ON item_totals.request_id = pr.id
         WHERE pr.id = ?
         """,
         (request_id,),
@@ -403,15 +713,16 @@ def load_request(request_id: int):
     return purchase_request
 
 
-def status_counts():
-    rows = get_db().execute(
-        "SELECT status, COUNT(*) AS count FROM purchase_requests GROUP BY status"
+def load_request_items(request_id: int):
+    return get_db().execute(
+        """
+        SELECT *
+        FROM purchase_request_items
+        WHERE request_id = ?
+        ORDER BY sort_order, id
+        """,
+        (request_id,),
     ).fetchall()
-    counts = {status: 0 for status in STATUS_LABELS}
-    for row in rows:
-        counts[row["status"]] = row["count"]
-    counts["all"] = sum(counts.values())
-    return counts
 
 
 @app.template_filter("bytes")
@@ -431,6 +742,11 @@ def format_datetime(value):
     return str(value).replace("T", " ").replace("Z", "")
 
 
+@app.template_filter("money")
+def format_money(value):
+    return f"{cents_to_decimal(value):,.2f}"
+
+
 @app.route("/login", methods=("GET", "POST"))
 def login():
     if g.user is not None:
@@ -441,7 +757,7 @@ def login():
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
         user = get_db().execute(
-            "SELECT * FROM users WHERE username = ?", (username,)
+            "SELECT * FROM users WHERE username = ? AND is_active = 1", (username,)
         ).fetchone()
 
         if user is None or not check_password_hash(user["password_hash"], password):
@@ -466,28 +782,35 @@ def logout():
 @app.route("/")
 @login_required
 def index():
-    selected_status = request.args.get("status", "all")
-    if selected_status not in {"all", *STATUS_LABELS.keys()}:
-        selected_status = "all"
-
-    params = []
-    status_clause = ""
-    if selected_status != "all":
-        status_clause = "WHERE pr.status = ?"
-        params.append(selected_status)
+    filters = build_filters(request.args)
+    clauses, params = filter_params(filters)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
 
     requests = get_db().execute(
         f"""
         SELECT
             pr.*,
             requester.display_name AS requester_name,
-            COUNT(a.id) AS attachment_count
+            COALESCE(attachments.attachment_count, 0) AS attachment_count,
+            COALESCE(items.item_count, 0) AS item_count,
+            COALESCE(items.total_cents, 0) AS total_cents
         FROM purchase_requests pr
         JOIN users requester ON requester.id = pr.requester_id
-        LEFT JOIN attachments a ON a.request_id = pr.id
-        {status_clause}
-        GROUP BY pr.id
-        ORDER BY pr.created_at DESC, pr.id DESC
+        LEFT JOIN (
+            SELECT request_id, COUNT(*) AS attachment_count
+            FROM attachments
+            GROUP BY request_id
+        ) attachments ON attachments.request_id = pr.id
+        LEFT JOIN (
+            SELECT
+                request_id,
+                COUNT(*) AS item_count,
+                SUM(line_total_cents) AS total_cents
+            FROM purchase_request_items
+            GROUP BY request_id
+        ) items ON items.request_id = pr.id
+        {where}
+        ORDER BY pr.request_date DESC, pr.created_at DESC, pr.id DESC
         """,
         params,
     ).fetchall()
@@ -495,15 +818,17 @@ def index():
     return render_template(
         "index.html",
         requests=requests,
-        counts=status_counts(),
-        selected_status=selected_status,
+        counts=status_counts(filters),
+        filters=filters,
         summary=request_summary,
     )
 
 
 @app.route("/requests/new", methods=("GET", "POST"))
-@login_required
+@requester_required
 def new_request():
+    posted_items = extract_form_items(request.form) if request.method == "POST" else []
+
     if request.method == "POST":
         validate_csrf()
         content = request.form.get("content", "").strip()
@@ -513,6 +838,7 @@ def new_request():
             parsed_date = parse_request_date(request_date)
             if not content:
                 raise ValidationError("请填写采购内容。")
+            items = parse_items(posted_items)
 
             saved_files = []
             db = get_db()
@@ -525,6 +851,7 @@ def new_request():
                 (g.user["id"], parsed_date, content, utc_now()),
             )
             request_id = cursor.lastrowid
+            insert_items(db, request_id, items)
 
             for image in request.files.getlist("images"):
                 attachment = save_attachment(image, "image")
@@ -549,11 +876,15 @@ def new_request():
                     os.remove(path)
             flash(str(error), "error")
 
+    if not posted_items:
+        posted_items = [{"description": "", "unit_price": "", "quantity": ""}]
+
     return render_template(
         "request_form.html",
         today=date.today().isoformat(),
         content=request.form.get("content", ""),
         request_date=request.form.get("request_date", date.today().isoformat()),
+        items=posted_items,
     )
 
 
@@ -561,6 +892,7 @@ def new_request():
 @login_required
 def request_detail(request_id):
     purchase_request = load_request(request_id)
+    items = load_request_items(request_id)
     attachments = get_db().execute(
         "SELECT * FROM attachments WHERE request_id = ? ORDER BY id",
         (request_id,),
@@ -569,6 +901,7 @@ def request_detail(request_id):
     return render_template(
         "request_detail.html",
         purchase_request=purchase_request,
+        items=items,
         attachments=attachments,
     )
 
@@ -617,6 +950,260 @@ def reject_request(request_id):
     get_db().commit()
     flash("已标记为未同意。", "success")
     return redirect(url_for("request_detail", request_id=request_id))
+
+
+@app.route("/users")
+@admin_required
+def users():
+    users_list = get_db().execute(
+        """
+        SELECT id, username, display_name, role, is_active, created_at
+        FROM users
+        ORDER BY is_active DESC, role, username
+        """
+    ).fetchall()
+    return render_template("users.html", users=users_list)
+
+
+@app.route("/users/new", methods=("GET", "POST"))
+@admin_required
+def new_user():
+    form = {
+        "username": "",
+        "display_name": "",
+        "role": "requester",
+        "password": "",
+        "is_active": "1",
+    }
+
+    if request.method == "POST":
+        validate_csrf()
+        form.update(
+            {
+                "username": request.form.get("username", "").strip(),
+                "display_name": request.form.get("display_name", "").strip(),
+                "role": request.form.get("role", "requester"),
+                "password": request.form.get("password", ""),
+                "is_active": "1" if request.form.get("is_active") else "0",
+            }
+        )
+
+        if form["role"] not in ROLE_LABELS:
+            form["role"] = "requester"
+
+        if not form["username"] or not form["password"]:
+            flash("用户名和密码不能为空。", "error")
+        else:
+            try:
+                get_db().execute(
+                    """
+                    INSERT INTO users
+                        (username, display_name, role, password_hash, is_active)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        form["username"],
+                        form["display_name"] or form["username"],
+                        form["role"],
+                        generate_password_hash(form["password"]),
+                        1 if form["is_active"] == "1" else 0,
+                    ),
+                )
+                get_db().commit()
+                flash("用户已新增。", "success")
+                return redirect(url_for("users"))
+            except sqlite3.IntegrityError:
+                flash("用户名已存在。", "error")
+
+    return render_template("user_form.html", form=form, mode="new")
+
+
+@app.route("/users/<int:user_id>/edit", methods=("GET", "POST"))
+@admin_required
+def edit_user(user_id):
+    user = get_db().execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    if user is None:
+        abort(404)
+
+    form = {
+        "username": user["username"],
+        "display_name": user["display_name"],
+        "role": user["role"],
+        "password": "",
+        "is_active": "1" if user["is_active"] else "0",
+    }
+
+    if request.method == "POST":
+        validate_csrf()
+        form.update(
+            {
+                "username": request.form.get("username", "").strip(),
+                "display_name": request.form.get("display_name", "").strip(),
+                "role": request.form.get("role", "requester"),
+                "password": request.form.get("password", ""),
+                "is_active": "1" if request.form.get("is_active") else "0",
+            }
+        )
+
+        if form["role"] not in ROLE_LABELS:
+            form["role"] = "requester"
+
+        if not form["username"]:
+            flash("用户名不能为空。", "error")
+        elif user_id == g.user["id"] and (
+            form["role"] != "admin" or form["is_active"] != "1"
+        ):
+            flash("不能取消当前登录管理员自己的管理员权限或启用状态。", "error")
+        else:
+            try:
+                get_db().execute(
+                    """
+                    UPDATE users
+                    SET username = ?,
+                        display_name = ?,
+                        role = ?,
+                        is_active = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        form["username"],
+                        form["display_name"] or form["username"],
+                        form["role"],
+                        1 if form["is_active"] == "1" else 0,
+                        user_id,
+                    ),
+                )
+                if form["password"]:
+                    get_db().execute(
+                        "UPDATE users SET password_hash = ? WHERE id = ?",
+                        (generate_password_hash(form["password"]), user_id),
+                    )
+                get_db().commit()
+                flash("用户信息已更新。", "success")
+                return redirect(url_for("users"))
+            except sqlite3.IntegrityError:
+                flash("用户名已存在。", "error")
+
+    return render_template("user_form.html", form=form, mode="edit", edited_user=user)
+
+
+def export_rows(filters):
+    clauses, params = filter_params(filters)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    return get_db().execute(
+        f"""
+        SELECT
+            pr.id,
+            pr.request_date,
+            pr.content,
+            pr.status,
+            pr.decision_comment,
+            pr.decided_at,
+            pr.created_at,
+            requester.display_name AS requester_name,
+            approver.display_name AS approver_name,
+            item.description AS item_description,
+            item.unit_price_cents,
+            item.quantity,
+            item.line_total_cents,
+            totals.total_cents
+        FROM purchase_requests pr
+        JOIN users requester ON requester.id = pr.requester_id
+        LEFT JOIN users approver ON approver.id = pr.decided_by
+        LEFT JOIN purchase_request_items item ON item.request_id = pr.id
+        LEFT JOIN (
+            SELECT request_id, SUM(line_total_cents) AS total_cents
+            FROM purchase_request_items
+            GROUP BY request_id
+        ) totals ON totals.request_id = pr.id
+        {where}
+        ORDER BY pr.request_date DESC, pr.id DESC, item.sort_order, item.id
+        """,
+        params,
+    ).fetchall()
+
+
+@app.route("/export.xlsx")
+@admin_required
+def export_requests():
+    filters = build_filters(request.args)
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "采购申请"
+
+    headers = [
+        "申请编号",
+        "申请日期",
+        "提交人",
+        "采购内容",
+        "项目",
+        "单价",
+        "数量",
+        "行总价",
+        "申请总价",
+        "状态",
+        "审批人",
+        "审批时间",
+        "审批备注",
+        "提交时间",
+    ]
+    sheet.append(headers)
+
+    for row in export_rows(filters):
+        sheet.append(
+            [
+                row["id"],
+                row["request_date"],
+                row["requester_name"],
+                row["content"],
+                row["item_description"] or "",
+                float(cents_to_decimal(row["unit_price_cents"]))
+                if row["unit_price_cents"] is not None
+                else "",
+                float(row["quantity"]) if row["quantity"] else "",
+                float(cents_to_decimal(row["line_total_cents"]))
+                if row["line_total_cents"] is not None
+                else "",
+                float(cents_to_decimal(row["total_cents"])),
+                STATUS_LABELS[row["status"]],
+                row["approver_name"] or "",
+                format_datetime(row["decided_at"]),
+                row["decision_comment"] or "",
+                format_datetime(row["created_at"]),
+            ]
+        )
+
+    header_fill = PatternFill("solid", fgColor="2F7D57")
+    for cell in sheet[1]:
+        cell.fill = header_fill
+        cell.font = Font(color="FFFFFF", bold=True)
+        cell.alignment = Alignment(horizontal="center")
+
+    sheet.freeze_panes = "A2"
+    sheet.auto_filter.ref = sheet.dimensions
+
+    widths = [10, 13, 14, 32, 26, 12, 10, 12, 12, 10, 12, 20, 30, 20]
+    for index, width in enumerate(widths, start=1):
+        sheet.column_dimensions[get_column_letter(index)].width = width
+
+    for row in sheet.iter_rows(min_row=2):
+        row[3].alignment = Alignment(wrap_text=True, vertical="top")
+        row[4].alignment = Alignment(wrap_text=True, vertical="top")
+        row[12].alignment = Alignment(wrap_text=True, vertical="top")
+        for money_cell in (row[5], row[7], row[8]):
+            money_cell.number_format = '#,##0.00'
+        row[6].number_format = '#,##0.##'
+
+    output = io.BytesIO()
+    workbook.save(output)
+    output.seek(0)
+    filename = f"procurement-requests-{date.today().isoformat()}.xlsx"
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 @app.route("/uploads/<path:filename>")
