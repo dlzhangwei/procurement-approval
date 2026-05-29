@@ -115,6 +115,16 @@ def main():
             export_response.content_type
             == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+        response = client.post(
+            f"/requests/{request_id}/delete",
+            data={"csrf_token": csrf(client)},
+            follow_redirects=False,
+        )
+        assert response.status_code == 302, response.data.decode()
+        deleted = db.execute(
+            "SELECT id FROM purchase_requests WHERE id = ?", (request_id,)
+        ).fetchone()
+        assert deleted is None
         db.close()
 
     print("smoke-ok")

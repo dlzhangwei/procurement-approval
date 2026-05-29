@@ -113,4 +113,17 @@
       </form>
     </section>
   {% endif %}
+
+  {% if can_manage_user_accounts %}
+    <section class="approval-panel danger-zone">
+      <h2>{{ t("delete_request") }}</h2>
+      <p>{{ t("delete_request_warning") }}</p>
+      <form method="post" action="{{ url_for('delete_request', request_id=purchase_request.id) }}" onsubmit="return confirm('{{ t('confirm_delete_request') }}');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="form-actions">
+          <button class="danger-button" type="submit">{{ t("delete_request") }}</button>
+        </div>
+      </form>
+    </section>
+  {% endif %}
 {% endblock %}

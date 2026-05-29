@@ -5,20 +5,6 @@
 {% block content %}
   <section class="auth-layout">
     <div class="auth-panel">
-      <form method="get" class="language-form">
-        {% if request.args.get("next") %}
-          <input type="hidden" name="next" value="{{ request.args.get('next') }}">
-        {% endif %}
-        <label>
-          {{ t("language") }}
-          <select name="lang" onchange="this.form.submit()">
-            {% for code, label in languages.items() %}
-              <option value="{{ code }}" {{ 'selected' if lang == code else '' }}>{{ label }}</option>
-            {% endfor %}
-          </select>
-        </label>
-      </form>
-
       <h1>{{ t("login") }}</h1>
       <form method="post" class="form-stack">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

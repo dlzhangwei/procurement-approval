@@ -184,6 +184,10 @@ TRANSLATIONS = {
         "request_created": "采购申请已提交。",
         "request_approved": "已同意该采购申请。",
         "request_rejected": "已标记为未同意。",
+        "delete_request": "删除申请",
+        "delete_request_warning": "删除后会同时移除该申请的明细和附件，无法恢复。",
+        "confirm_delete_request": "确定要删除这条采购申请吗？此操作无法恢复。",
+        "request_deleted": "采购申请已删除。",
         "user_required": "用户名和密码不能为空。",
         "username_required": "用户名不能为空。",
         "self_admin_required": "不能取消当前登录管理员自己的管理员权限或启用状态。",
@@ -290,6 +294,10 @@ TRANSLATIONS = {
         "request_created": "Solicitud enviada.",
         "request_approved": "Solicitud aprobada.",
         "request_rejected": "Solicitud rechazada.",
+        "delete_request": "Eliminar solicitud",
+        "delete_request_warning": "Se eliminarán los detalles y adjuntos de esta solicitud. Esta acción no se puede deshacer.",
+        "confirm_delete_request": "¿Seguro que desea eliminar esta solicitud? Esta acción no se puede deshacer.",
+        "request_deleted": "Solicitud eliminada.",
         "user_required": "Usuario y contraseña son obligatorios.",
         "username_required": "El usuario es obligatorio.",
         "self_admin_required": "No puede quitarse su propio rol de administrador ni desactivar su cuenta.",
@@ -1243,6 +1251,29 @@ def reject_request(request_id):
     get_db().commit()
     flash(t("request_rejected"), "success")
     return redirect(url_for("request_detail", request_id=request_id))
+
+
+@app.route("/requests/<int:request_id>/delete", methods=("POST",))
+@admin_required
+def delete_request(request_id):
+    validate_csrf()
+    load_request(request_id)
+    attachments = get_db().execute(
+        "SELECT stored_name FROM attachments WHERE request_id = ?", (request_id,)
+    ).fetchall()
+    get_db().execute("DELETE FROM purchase_requests WHERE id = ?", (request_id,))
+    get_db().commit()
+
+    for attachment in attachments:
+        path = os.path.join(app.config["UPLOAD_FOLDER"], attachment["stored_name"])
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+        except OSError:
+            pass
+
+    flash(t("request_deleted"), "success")
+    return redirect(url_for("index"))
 
 
 @app.route("/users")
